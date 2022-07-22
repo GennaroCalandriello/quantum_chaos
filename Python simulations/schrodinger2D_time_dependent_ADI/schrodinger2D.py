@@ -14,23 +14,29 @@ Ny = Nx
 tmax = 3000
 xmax = 1.0
 ymax = 1.0
-dt = 4e-5
+dt = 1e-5
 x = np.linspace(0, xmax, Nx)
 y = np.linspace(0, ymax, Ny)
 dx = x[1] - x[0]
 dy = y[1] - y[0]
-D = 0.4
+D = 1.0
 alphac = D * dt * 1j / 2 / dx ** 2
 alphar = dt * 1 / 4 / dx ** 2
 
 pot_list = [
-    "mickey",
-    "Sinai",
-    "Bunimovich",
-    "Ehrenfest",
-    "Anderson",
-    "Henon",
-    "cardioid",
+    "circle",  # 0
+    "square",  # 1
+    "Sinai",  # 2
+    "Bunimovich",  # 3
+    "mod_Bunimovich",  # 4
+    "mod_Sinai",  # 5
+    "triangle",  # 6
+    "mickey",  # 7
+    "Ehrenfest",  # 8
+    "Anderson",  # 9
+    "Henon",  # 10
+    "cardioid",  # 11
+    "harm_osc",  # 12
 ]
 graph_potential = False
 
@@ -50,41 +56,42 @@ def domain_cardioid(x, y, x0, y0):
     return r
 
 
-def potential(V, x, y, kind=pot_list[1]):
+def potential(x, y, kindpot=pot_list[5]):
 
-    """Function defining the shape of the potential. Potentials treated are: mickey, Sinai, Bunimovich stadium,
-    Ehrenfest, Henon, Anderson, cardioid"""
-
-    idx_list = []
-    idx_list_0 = []
-    idx_list_rectangle = []
-
-    # for mikey potential
-    x0, y0, radius = 0.5, 0.5, 0.15
-    x02, y02, radius2 = 0.5, 0.3, 0.08
-    x03, y03, radius3 = 0.3, 0.5, 0.08
+    """Construct the Bunimovich & Sinai stadium potential. The B. stadium is constructed with two circles and a rectangle with the proportion
+    reported in the image on the repository"""
 
     x1s, y1s, radius1s = 0.2, 0.5, 0.2
+    xc, yc, radiusc = 0.5, 0.5, 0.4
     x2s, y2s, radius2s = 0.8, 0.5, 0.2
+    x0, y0, radius = 0.5, 0.5, 0.15
+    x03, y03, radius3 = 0.3, 0.5, 0.08
+    x02, y02, radius2 = 0.5, 0.3, 0.08
 
-    if kind == "mickey":
+    idx_list = []  # index for imposing V values on the first circle
+    idx_list_0 = []  # index for imposing V values on the second circle
+    idx_list_rectangle = []  # index for imposing V values on the intermediate rectangle
+    V = np.zeros([Nx, Ny])
+
+    if kindpot == "circle":
 
         for i in range(Nx):
             for j in range(Ny):
-                r = domain_circle(x[i], y[j], x0, y0)
-                r1 = domain_circle(x[i], y[j], x02, y02)
-                r2 = domain_circle(x[i], y[j], x03, y03)
-                if r < radius or r1 < radius2 or r2 < radius3:  # r1 < radius2:
+                r = domain_circle(x[i], y[j], xc, yc)
+                if r > radiusc:
                     idx_list.append((i, j))
 
         for i, j in idx_list:
             V[i, j] = 1e10
-        V[0, :] = 1e10
-        V[:, 0] = 1e10
+
+    if kindpot == "square":
+
+        V[1, :] = 1e10
+        V[:, 1] = 1e10
         V[Nx - 1, :] = 1e10
         V[:, Ny - 1] = 1e10
 
-    if kind == "Sinai":
+    if kindpot == "Sinai":
         for i in range(Nx):
             for j in range(Ny):
                 r = domain_circle(x[i], y[j], x0, y0)
@@ -92,15 +99,57 @@ def potential(V, x, y, kind=pot_list[1]):
                     idx_list.append((i, j))
 
         for i, j in idx_list:
+            V[i, j] = 1e50
+
+        V[1, :] = 1e50
+        V[:, 1] = 1e50
+        V[Nx - 1, :] = 1e50
+        V[:, Ny - 1] = 1e50
+
+    if kindpot == "mod_Sinai":
+        circ_list = []
+        for i in range(Nx):
+            V[i:, i] = 1e10
+
+        for i in range(Nx):
+            for j in range(Ny):
+                r = domain_circle(x[i], y[j], 0, 0)
+                if r < 0.35:
+                    circ_list.append((i, j))
+
+        for i, j in circ_list:
             V[i, j] = 1e10
-        V[0, :] = 1e10
-        V[:, 0] = 1e10
+
+        V[1, :] = 1e10
+        V[:, 1] = 1e10
         V[Nx - 1, :] = 1e10
         V[:, Ny - 1] = 1e10
 
-    if kind == "Bunimovich":
+    if kindpot == "Bunimovich":  # non toccare porcodd*o che sennò va tutto a p*ttane
+        for i in range(Nx):
+            for j in range(Ny):
+                r1 = domain_circle(x[i], y[j], x1s, y1s)
+                r2 = domain_circle(x[i], y[j], x2s, y2s)
+                if not r1 < radius1s and not r2 < radius2s:
+                    idx_list.append((i, j))
+                if not r1 < radius1s and not r2 < radius2s:
+                    idx_list_0.append((i, j))
+                if (
+                    not x[i] < 0.2
+                    and not x[i] > 0.8
+                    and not y[j] < 0.3
+                    and not y[j] > 0.7
+                ):
+                    idx_list_rectangle.append((i, j))
 
-        # non toccare dioporco che poi non si trova
+        for i, j in idx_list:
+            V[i, j] = 1e20
+        for i, j in idx_list_0:
+            V[i, j] = 1e20
+        for i, j in idx_list_rectangle:
+            V[i, j] = 0
+
+    if kindpot == "mod_Bunimovich":
 
         for i in range(Nx):
             for j in range(Ny):
@@ -116,17 +165,35 @@ def potential(V, x, y, kind=pot_list[1]):
                     and not y[j] < 0.3
                     and not y[j] > 0.7
                 ):
-                    # V[i, j] = 1e6
                     idx_list_rectangle.append((i, j))
 
-        for i, j in idx_list:
-            V[i, j] = 1e6
         for i, j in idx_list_0:
-            V[i, j] = 1e6
+            V[i, j] = 1e20
         for i, j in idx_list_rectangle:
             V[i, j] = 0
 
-    if kind == "Ehrenfest":
+        halfx = Nx // 2
+        halfy = halfx
+        V[:, halfy:] = 1e20
+        V[halfx:, :] = 1e20
+
+    if kindpot == "mickey":
+        for i in range(Nx):
+            for j in range(Ny):
+                r = domain_circle(x[i], y[j], x0, y0)
+                r1 = domain_circle(x[i], y[j], x02, y02)
+                r2 = domain_circle(x[i], y[j], x03, y03)
+                if r < radius or r1 < radius2 or r2 < radius3:  # r1 < radius2:
+                    idx_list.append((i, j))
+
+        for i, j in idx_list:
+            V[i, j] = 1e10
+        V[0, :] = 1e10
+        V[:, 0] = 1e10
+        V[Nx - 1, :] = 1e10
+        V[:, Ny - 1] = 1e10
+
+    if kindpot == "Ehrenfest":
         for i in range(Nx):
             for j in range(Ny):
                 r1 = domain_circle(x[i], y[j], x1s, y1s)
@@ -150,15 +217,15 @@ def potential(V, x, y, kind=pot_list[1]):
         for i, j in idx_list_rectangle:
             V[i, j] = 0
 
-    if kind == "Anderson":
+    if kindpot == "Anderson":
 
         """Random potential in a certain region to visualize the Anderson Localization"""
 
-        rad = 0.15
-        radmin = 0.1
+        rad = 0.1
+        radmin = 0.08
         for i in range(Nx):
             for j in range(Ny):
-                if i % 10 and j % 10 == 0:
+                if i % 4 and j % 4 == 0:
                     xs, ys = random.uniform(0.44, 0.6), random.uniform(0, 1)
                     r = domain_circle(x[i], y[j], xs, ys)
                     if radmin < r < rad:
@@ -172,28 +239,23 @@ def potential(V, x, y, kind=pot_list[1]):
         V[Nx - 1, :] = 1e10
         V[:, Ny - 1] = 1e10
 
-    if kind == "Henon":
-
+    if kindpot == "Henon":
         lamb = 1.0
-        sh = 0.7
+        sh = 0
         for i in range(Nx):
             for j in range(Ny):
-                # V[i, j] = (
-                #     (1 / 2) * (x[i] ** 2 + y[j] ** 2)
-                #     + lamb * ((x[i] ** 2) * y[j] - (y[j] ** 3) / 3)
-                # )
                 V[i, j] = (
-                    (1 / 2) * ((i * dx - sh) ** 2 + (j * dy - sh) ** 2)
-                    + lamb
-                    * (((dx * i - sh) ** 2) * (dy * j - sh) - ((dy * j - sh) ** 3) / 3)
-                ) * 1e3
+                    (1 / 2) * ((x[i] - sh) ** 2 + (y[j] - sh) ** 2)
+                    + lamb * (((x[i] - sh) ** 2) * (y[j] - sh) - ((y[j] - sh) ** 3) / 3)
+                ) * 2e2
 
         V[0, :] = 1e10
         V[:, 0] = 1e10
         V[Nx - 1, :] = 1e10
         V[:, Ny - 1] = 1e10
 
-    if kind == "cardioid":
+    if kindpot == "cardioid":
+
         """Cardioid potential, impose xmin=ymin=0 & xmax=ymax=1"""
 
         rad, x0, y0 = 0.16, 0.67, 0.5  # se li modifichi te la vedi tu eh!
@@ -206,6 +268,13 @@ def potential(V, x, y, kind=pot_list[1]):
 
         for i, j in card_list:
             V[i, j] = 1e10
+
+    if kindpot == "harm_osc":
+        k = 0.4
+        m = 0.1
+        for i in range(Nx):
+            for j in range(Ny):
+                V[i, j] = (1 / 2) * (k / m) * x[i] ** 2 + y[j] ** 2 / (2 * m)
 
     return V
 
@@ -229,8 +298,12 @@ def initial_coherent_state(psi, xy0, pxpy0, stdv):
 
 
 # parameters of psi and psi2
-xy0, pxpy0, stdv = [Nx / 6, Ny / 2], [Nx / 3, 0], 0.07
-xy02, pxpy02, stdv2 = [Nx / 2, Ny / 2], [-3 * Nx / 7, -4 * Nx / 9], 0.06
+xy0, pxpy0, stdv = (
+    [Nx / 3, Ny / 1.5],
+    [Nx / 6, Ny / 15],
+    0.06,
+)  # mod_Bunimovich: xy0=[Nx / 5.6, Ny / 2.5], mod_sinai: xy0= [Nx / 3, Ny / 1.5]
+xy02, pxpy02, stdv2 = [Nx / 2.5, Ny / 1.5], [-3 * Nx / 7, -4 * Nx / 9], 0.06
 
 # initializing 2D array of psi and V
 psi = np.zeros((Nx, Ny), dtype=np.complex128)
@@ -240,10 +313,10 @@ V = np.zeros((Nx, Ny))
 psi = initial_coherent_state(psi, xy0, pxpy0, stdv)
 psi2 = initial_coherent_state(psi2, xy02, pxpy02, stdv2)
 
-V = potential(V, x, y)
+V = potential(x, y)
 
 if graph_potential:
-    graph.static_plot(x, y, np.abs(psi) ** 2, 0)
+    graph.static_plot(x, y, V + np.amax(V) * 1e3 * np.abs(psi) ** 2, 0)
 
 ###-----------upper and lower diagonals---------------------------###
 
@@ -311,7 +384,7 @@ if __name__ == "__main__":
     if exe:
 
         if vtk:
-            path = "datacard/datavtk"
+            path = "datasinai/datavtk"
             if os.path.exists(path):
                 shutil.rmtree(path)
             os.makedirs(path)

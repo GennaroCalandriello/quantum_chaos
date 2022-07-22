@@ -9,55 +9,67 @@ import math
 
 def spacing_predictions(eigen, spacing_kind, data="float"):
 
-    """Calculate the spacing distributions. Theoretical details reported in the repository"""
-    # spacing_kind = 1
+    """Calculate the spacing distributions:
 
-    if data == "float":
-        eigenfloat = [eigen[i].astype(float) for i in range(len(eigen))]
-    if data == "complex":
-        eigenfloat = [eigen[i].astype(complex) for i in range(len(eigen))]
+    spacing_kind=1 return FN (Further Neighbour) distribution (return s/ mean, s);
 
-    n_evl = len(eigenfloat)
-    eigenv = np.array(eigenfloat)
-    eigenv = eigenv.real
-    eigenv = np.sort(eigenv)  # ordered set of eigenvalues is necessary
-    # print(eigenv)
+    spacing_kind=2 return rude spacing e[i+1]-e[i]
+
+    spacing_kind=3 return the Level Spacing Ratio (LSR)
+
+    spacing_kind=4 return CN (Closest Neighbour) distribution (return s/ mean, s)"""
+
+    n_evl = len(eigen)
+    eigen = eigen.real
+    eigen = np.sort(eigen)
 
     if spacing_kind == 1:
-        spacing = []
-        for e in range(1, n_evl - 1):
-            spacing.append(
-                max(eigenv[e + 1] - eigenv[e], eigenv[e] - eigenv[e - 1])
-            )  # si può usare anche min per...
-        mean = np.mean(np.array(spacing))
-        print("Mean Level Spacing", mean)
-        return np.array(spacing) / mean
 
-    # this kind of spacing calculus is adapted for many bodies simulations, it is totally unuseful in this case, ma chissene la lascio lo stesso
+        spacing = []
+
+        for e in range(1, n_evl - 1):
+            spacing.append(max(eigen[e + 1] - eigen[e], eigen[e] - eigen[e - 1]))
+
+        mean = np.mean(np.array(spacing))
+
+        return np.array(spacing) / mean, np.array(spacing)
+
     if spacing_kind == 2:
-        r_vec = []
-        s_vec = np.zeros(len(eigen))
-        for i in range(len(eigen) - 1):
-            s_vec[i] = eigen[i + 1] - eigen[i]
-        mean = np.mean(s_vec)
-        for n in range(1, len(s_vec)):
-            # r_vec.append(min(s_vec[n], s_vec[n - 1]) / max(s_vec[n], s_vec[n - 1]))
-            r_vec.append(min(s_vec[n] / s_vec[n - 1], s_vec[n - 1] / s_vec[n]))
-        r_m = np.mean(np.array(r_vec))
-        return r_vec / r_m
+
+        s_n = 0
+        s_n_minus_1 = 0
+        r_n = 0
+        r_tilde = []
+
+        for k in range(1, n_evl - 1):
+            s_n = eigen[k + 1] - eigen[k]
+            s_n_minus_1 = eigen[k] - eigen[k - 1]
+            r_n = s_n / s_n_minus_1
+            r_tilde.append(min(r_n, 1 / r_n))
+
+        return np.array(r_tilde)
 
     if spacing_kind == 3:
-        s = []
+        # level spacing ration
+        s_CN = 0
+        s_FN = 0
+        ratio = []
+
         for i in range(1, n_evl - 1):
-            s.append(min(eigenv[i + 1] - eigenv[i], eigenv[i] - eigenv[i - 1]))
-        return s / np.mean(np.array(s))
+            s_CN = min(eigen[i + 1] - eigen[i], eigen[i] - eigen[i - 1])
+            s_FN = max(eigen[i + 1] - eigen[i], eigen[i] - eigen[i - 1])
+            ratio.append(s_CN / s_FN)
+
+        return np.array(ratio)
 
     if spacing_kind == 4:
-        s = []
+        s = np.zeros(n_evl - 2)
+
         for i in range(1, n_evl - 2):
-            s.append(max(eigenv[i + 2] - eigenv[i + 1], eigenv[i + 1] - eigenv[i]))
+            s[i] = min(eigen[i + 1] - eigen[i], eigen[i] - eigen[i - 1])
             mean = np.mean(np.array(s))
-        return s / mean
+
+        return s / mean, s
 
 
 def distribution(sp, kind):

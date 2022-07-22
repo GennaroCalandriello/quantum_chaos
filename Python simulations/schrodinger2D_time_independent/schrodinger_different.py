@@ -9,27 +9,33 @@ import random
 
 
 potentials_list = [
-    "square",  # 0
-    "Sinai",  # 1
-    "Bunimovich",  # 2
-    "mickey",  # 3
-    "Ehrenfest",  # 4
-    "Anderson",  # 5
-    "Henon",  # 6
-    "cardioid",  # 7
-    "harm_osc",  # 8
+    "circle",  # 0
+    "square",  # 1
+    "Sinai",  # 2
+    "Bunimovich",  # 3
+    "mod_Bunimovich",  # 4
+    "mod_Sinai",  # 5
+    "triangle",  # 6
+    "mickey",  # 7
+    "Ehrenfest",  # 8
+    "Anderson",  # 9
+    "Henon",  # 10
+    "cardioid",  # 11
+    "harm_osc",  # 12
 ]
 
 
-kindpot = potentials_list[2]
+kindpot = potentials_list[9]
 plot = False
 executor = False
+unfolded_load = True
+saving = False
 plot_potential = "n"
 
-Nx, Ny = 500, 500
+Nx, Ny = 300, 300
 xmin, xmax, ymin, ymax = 0, 1, 0, 1
-n_eigen = 900  # how much eigenvalues and eigenvectors do you want?
-E0 = 0
+n_eigen = 12  # how much eigenvalues and eigenvectors do you want?
+E0 = 10
 
 """This program resolves Schroedinger equation time independent by vectorizing the matrices of potential and kinetic energy. Details
 on theory will be added to repository. This system represents a Bunimovich billiard, which is classically and quantum mechanically chaotic"""
@@ -115,15 +121,17 @@ def evaluation_wavefunction(xmin, xmax, Nx, ymin, ymax, Ny, potential, neigs, E0
     )
 
     # saving eingenvalues and eigenstates
-    np.savetxt(f"eigenvalues_{kindpot}.txt", eigenvalues)
-    # np.savetxt(f"eigenvectors_{kindpot}.txt", eigenstates)
+    if saving:
+        # eigenstates = eigenstates[:, 800:820]
+        np.savetxt(f"eigenvalues_{kindpot}.txt", eigenvalues)
+        np.savetxt(f"eigenvectors_{kindpot}.txt", eigenstates)
 
     if plot:
         for n in range(neigs):
             psi = eigenstates[:, n]
             PSI = oneD_to_twoD(Nx, Ny, psi)
             PSI = np.abs(PSI) ** 2
-            plt.pcolormesh(np.flipud(PSI), cmap="seismic")
+            plt.pcolormesh(np.flipud(PSI), cmap="terrain")
             plt.axis("equal")
             plt.axis("off")
             plt.show()
@@ -146,12 +154,21 @@ def domain_cardioid(x, y, x0, y0):
     return r
 
 
+def domain_triangle(x, y):
+    x0 = 1
+    y0 = 1
+    """Define triangle domain"""
+    h = np.sqrt((x - x0) ** 2 + (y - y0) ** 2)
+    return h
+
+
 def potential(x, y):
 
     """Construct the Bunimovich & Sinai stadium potential. The B. stadium is constructed with two circles and a rectangle with the proportion
     reported in the image on the repository"""
 
     x1s, y1s, radius1s = 0.2, 0.5, 0.2
+    xc, yc, radiusc = 0.5, 0.5, 0.4
     x2s, y2s, radius2s = 0.8, 0.5, 0.2
     x0, y0, radius = 0.5, 0.5, 0.15
     x03, y03, radius3 = 0.3, 0.5, 0.08
@@ -161,6 +178,17 @@ def potential(x, y):
     idx_list_0 = []  # index for imposing V values on the second circle
     idx_list_rectangle = []  # index for imposing V values on the intermediate rectangle
     V = np.zeros([Nx, Ny])
+
+    if kindpot == "circle":
+
+        for i in range(Nx):
+            for j in range(Ny):
+                r = domain_circle(x[i], y[j], xc, yc)
+                if r > radiusc:
+                    idx_list.append((i, j))
+
+        for i, j in idx_list:
+            V[i, j] = 1e10
 
     if kindpot == "square":
 
@@ -177,6 +205,25 @@ def potential(x, y):
                     idx_list.append((i, j))
 
         for i, j in idx_list:
+            V[i, j] = 1e50
+
+        V[1, :] = 1e50
+        V[:, 1] = 1e50
+        V[Nx - 1, :] = 1e50
+        V[:, Ny - 1] = 1e50
+
+    if kindpot == "mod_Sinai":
+        circ_list = []
+        for i in range(Nx):
+            V[i:, i] = 1e10
+
+        for i in range(Nx):
+            for j in range(Ny):
+                r = domain_circle(x[i], y[j], 0, 0)
+                if r < 0.35:
+                    circ_list.append((i, j))
+
+        for i, j in circ_list:
             V[i, j] = 1e10
 
         V[1, :] = 1e10
@@ -202,11 +249,39 @@ def potential(x, y):
                     idx_list_rectangle.append((i, j))
 
         for i, j in idx_list:
-            V[i, j] = 1e10
+            V[i, j] = 1e20
         for i, j in idx_list_0:
-            V[i, j] = 1e10
+            V[i, j] = 1e20
         for i, j in idx_list_rectangle:
             V[i, j] = 0
+
+    if kindpot == "mod_Bunimovich":
+
+        for i in range(Nx):
+            for j in range(Ny):
+                r1 = domain_circle(x[i], y[j], x1s, y1s)
+                r2 = domain_circle(x[i], y[j], x2s, y2s)
+                if not r1 < radius1s and not r2 < radius2s:
+                    idx_list.append((i, j))
+                if not r1 < radius1s and not r2 < radius2s:
+                    idx_list_0.append((i, j))
+                if (
+                    not x[i] < 0.2
+                    and not x[i] > 0.8
+                    and not y[j] < 0.3
+                    and not y[j] > 0.7
+                ):
+                    idx_list_rectangle.append((i, j))
+
+        for i, j in idx_list_0:
+            V[i, j] = 1e20
+        for i, j in idx_list_rectangle:
+            V[i, j] = 0
+
+        halfx = Nx // 2
+        halfy = halfx
+        V[:, halfy:] = 1e20
+        V[halfx:, :] = 1e20
 
     if kindpot == "mickey":
         for i in range(Nx):
@@ -252,8 +327,8 @@ def potential(x, y):
 
         """Random potential in a certain region to visualize the Anderson Localization"""
 
-        rad = 0.15
-        radmin = 0.1
+        rad = 0.1
+        radmin = 0.08
         for i in range(Nx):
             for j in range(Ny):
                 # if i % 10 and j % 10 == 0:
@@ -326,28 +401,37 @@ if __name__ == "__main__":
 
     print(f"Total time {np.abs(round(time.time()-start))}")
 
-    # eigen = np.loadtxt(f"eigenvalues_{kindpot}.txt", dtype=complex)
-    eigen = np.loadtxt(f"unfolded_spectrum_{kindpot}.txt", dtype=complex)
+    if unfolded_load:
+        eigen = np.loadtxt(
+            f"unfolded_spectra/unfolded_spectrum_{kindpot}.txt", dtype=complex
+        )
+    else:
+        eigen = np.loadtxt(f"spectra/eigenvalues_{kindpot}.txt", dtype=complex)
 
-    spacing = lvl.spacing_predictions(
-        eigen, 1, "complex"
-    )  # calculate the spacing, given the array of eigenvalues
-    spacing1 = lvl.spacing_predictions(eigen, 2, "complex",)
-    p = lvl.distribution(
-        spacing, "GOE"
-    )  # construct the 3 functions of the 3 ensemble spacing distributions
+    # Calculating varoius spacing (FN, CN, CN/FN, trivial spacing)
+    spacing_CN, s_CN = lvl.spacing_predictions(eigen, 4, "complex")
+    spacing_FN, s_FN = lvl.spacing_predictions(eigen, 1, "complex")
+    spacing_trivial = lvl.spacing_predictions(eigen, 2, "complex")
+    ratioexp = lvl.spacing_predictions(eigen, 3, "complex")
 
-    p1 = lvl.distribution(spacing, "GSE")
-    p2 = lvl.distribution(spacing, "GUE")
-    p3 = lvl.distribution(spacing, "Poisson")
+    # construct the 3 functions of the 3 ensemble spacing distributions
+    print(f"Spacing ratio = {np.mean(ratioexp[1:])} theory prediction GOE = 0.5307")
+    print(f"Spacing FN mean = {np.mean(s_FN)} theory prediction = {4/3}")
+    print(f"Spacing CN mean = {np.mean(s_CN)} theory prediction = {2/3}")
+    print(f"Spacing trivial mean = {np.mean(spacing_trivial)}, theory prediction = 1")
 
-    bins = int(1 + 3.332 * np.log(len(spacing)))
+    p = lvl.distribution(spacing_CN, "GOE")
+    p1 = lvl.distribution(spacing_CN, "GSE")
+    p2 = lvl.distribution(spacing_CN, "GUE")
+    p3 = lvl.distribution(spacing_CN, "Poisson")
+
+    bins = int(1 + 3.332 * np.log(len(spacing_CN)))
 
     # Plotting the spacing obtained with the 3 ensemble theoretical distributions
 
     plt.figure()
     plt.hist(
-        spacing,
+        spacing_CN,
         bins,
         density=True,
         histtype="step",
@@ -356,7 +440,7 @@ if __name__ == "__main__":
         label="Spacing distribution",
     )
     plt.plot(
-        np.linspace(min(spacing), max(spacing), len(p)),
+        np.linspace(min(spacing_CN), max(spacing_CN), len(p)),
         p,
         "--",
         color="green",
@@ -377,7 +461,7 @@ if __name__ == "__main__":
     #     label="GUE prediction",
     # )
     plt.plot(
-        np.linspace(min(spacing), max(spacing), len(p)),
+        np.linspace(min(spacing_CN), max(spacing_CN), len(p)),
         p3,
         "-.",
         color="yellow",

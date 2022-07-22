@@ -6,22 +6,26 @@ from multiprocessing import Pool
 from scipy.interpolate import UnivariateSpline
 
 potentials_list = [
-    "square",  # 0
-    "Sinai",  # 1
-    "Bunimovich",  # 2
-    "mickey",  # 3
-    "Ehrenfest",  # 4
-    "Anderson",  # 5
-    "Henon",  # 6
-    "cardioid",  # 7
-    "harm_osc",  # 8
+    "circle",  # 0
+    "square",  # 1
+    "Sinai",  # 2
+    "Bunimovich",  # 3
+    "mod_Bunimovich",  # 4
+    "mod_Sinai",  # 5
+    "triangle",  # 6
+    "mickey",  # 7
+    "Ehrenfest",  # 8
+    "Anderson",  # 9
+    "Henon",  # 10
+    "cardioid",  # 11
+    "harm_osc",  # 12
 ]
 
 
-potential = potentials_list[2]
+potential = potentials_list[9]
 
 plot = True
-save = True
+save = False
 univariate = True  # if True use scipy.interpolate to unfold
 unfolded = "n"
 
@@ -32,18 +36,39 @@ if unfolded == "y":
         f"unfolded_spectra/unfolded_spectrum_{potential}.txt", dtype=complex
     )
 else:
-    eig = np.loadtxt(f"eigenvalues_{potential}.txt", dtype=complex)
+    eig = np.loadtxt(f"spectra/eigenvalues_{potential}.txt", dtype=complex)
 
 
 n = len(eig)
 eig = eig.real
 # eig = eig / SLA.norm(eig)
-len_analysis = 78
+len_analysis = n
 gamma = 0.577216
-
-
+# eig = np.sort(eig)
+print(eig)
 ##----------------------Staircase function working: unfolding spectra--------------------------
-def staircase_and_unfolding():
+
+
+def unfolding_2_punto_0():
+    y = np.arange(len_analysis)
+
+    poly = np.polyfit(eig[:len_analysis], y, 50)
+    poly_y = np.poly1d(poly)(eig[:len_analysis])
+    plt.plot(eig[:len_analysis], poly_y, c="red", linestyle="--", label="Unfolding")
+    plt.step(eig[:len_analysis], y)
+    plt.xlabel("E", fontsize=15)
+    plt.ylabel("N(E)", fontsize=15)
+    plt.title(
+        f"Staircase & Unfolding for {potential}, first {len_analysis} e.v.", fontsize=22
+    )
+    plt.legend()
+    plt.show()
+
+    if save:
+        np.savetxt(f"unfolded_spectra/unfolded_spectrum_{potential}.txt", poly_y)
+
+
+def staircase():
 
     lin_list = []
     n_list = []
@@ -51,7 +76,7 @@ def staircase_and_unfolding():
     eig1 = eig[:len_analysis]
     eig1 = np.sort(eig1)
 
-    for e in range(1, len(eig1)):
+    for e in range(len(eig1)):
         lin = 0
         lin = np.linspace(eig1[e], eig1[e - 1], 1)
         lin_list.append(lin)
@@ -61,23 +86,36 @@ def staircase_and_unfolding():
 
     lin_list = np.reshape(lin_list, len(n_list))
 
+    return lin_list, n_list
+
+
+def staircase_and_unfolding():
+
+    """Compute the unfolding of the spectra"""
+
+    lin_list, n_list = staircase()
+
     plt.figure()
 
     if univariate:
         poly_y = UnivariateSpline(lin_list, n_list)
-        poly_y.set_smoothing_factor(5)
+        poly_y.set_smoothing_factor(
+            400
+        )  # per diminuire lo smoothing aumentarne il valore (dai 400 in su più o meno)
 
         if save:
-            np.savetxt(f"unfolded_spectrum_{potential}.txt", poly_y(lin_list))
+            np.savetxt(
+                f"unfolded_spectra/unfolded_spectrum_{potential}.txt", poly_y(lin_list)
+            )
 
         plt.plot(lin_list, poly_y(lin_list), c="red", linestyle="--", label="Unfolding")
 
     else:
-        poly = np.polyfit(lin_list, n_list, 60)
+        poly = np.polyfit(lin_list, n_list, 30)
         poly_y = np.poly1d(poly)(lin_list)
 
         if save:
-            np.savetxt(f"unfolded_spectrum_{potential}.txt", poly_y)
+            np.savetxt(f"unfolded_spectra/unfolded_spectrum_{potential}.txt", poly_y)
 
         plt.plot(lin_list, poly_y, c="red", linestyle="--", label="Unfolding")
 
@@ -170,7 +208,6 @@ def delta3_integrata():
     plt.xlabel("E", fontsize=15)
     plt.ylabel(r"$\Delta_3(E)$", fontsize=15)
     plt.legend()
-    # plt.yscale("log")
     plt.xlim((-50, max(eig[:len_analysis]) + 50))
     plt.show()
 
@@ -198,7 +235,6 @@ def sigma2_integrata():
     plt.xlabel("E", fontsize=15)
     plt.ylabel(r"$\Sigma_2 (E)$", fontsize=15)
     plt.legend()
-    # plt.yscale("log")
     plt.xlim((-50, max(eig[:len_analysis]) + 50))
     plt.show()
 
@@ -215,8 +251,10 @@ def rho():
     t = np.arange(n)
     freq = np.fft.fftfreq(t.shape[-1])  # frequenze
 
+    yf = np.abs((ff)[0 : len(ff) // 2]) ** 2
+
     if plot:
-        plt.plot(freq[0 : len(ff) // 2], np.abs((ff)[0 : len(ff) // 2]) ** 2, c="green")
+        plt.plot(freq[0 : len(ff) // 2], yf, c="green")
         plt.xlabel("f")
         plt.ylabel(r"$|\rho|^2$")
         plt.legend()
@@ -228,12 +266,65 @@ def fluctuations():
     """Level energies must be unfolded"""
 
     eigfl = eig[:len_analysis]
+    print(eigfl)
     delta_n = []
+    levelspacing = []
     for i in range(len(eigfl)):
-        delta_n.append(i - 0.5 - eigfl[i])
+        delta_n.append(i - 0.5 - eigfl[i] + 0.5)
 
-    plt.plot(eigfl, delta_n)
+    # plot fluctuations:
+    plt.plot(eigfl, delta_n, label=r"$N_{fl} (E)$", c="blue")
+    plt.title(f"Fluctuating part of the spectrum for {potential}", fontsize=22)
+    plt.xlabel("E", fontsize=15)
+    plt.ylabel(r"$N_{fl}(E)$", fontsize=15)
+    plt.legend()
     plt.show()
+
+    # verify if the spectrum is complete:
+    if univariate:
+        poly = UnivariateSpline(eigfl, delta_n)
+        poly.set_smoothing_factor(500)
+        plt.plot(eigfl, delta_n, label=r"$N_{fl} (E)$", c="blue")
+        plt.plot(eigfl, poly(eigfl), label="fitting", c="green")
+        plt.title(
+            f"Testing the completeness of the spectrum for {potential}", fontsize=22
+        )
+        plt.xlabel("E", fontsize=15)
+        plt.ylabel(r"$N_{fl}(E)$", fontsize=15)
+        plt.legend()
+        plt.show()
+
+    else:
+        poly = np.polyfit(eigfl, delta_n, 50)
+        poly_delta_n = np.poly1d(poly)(delta_n)
+        plt.plot(eigfl, delta_n, label=r"$N_{fl} (E)$")
+        plt.step(eigfl, -poly_delta_n, label="fitting")
+        plt.title(
+            f"Testing the completeness of the spectrum for {potential}", fontsize=22
+        )
+        plt.xlabel("E", fontsize=15)
+        plt.ylabel(r"$N_{fl}(E)$", fontsize=15)
+        plt.legend()
+        plt.show()
+
+    # N_staircase, _ = staircase()
+    # N_smooth = N_staircase + delta_n
+    N_smooth = eigfl + delta_n
+    # plt.plot(eigfl, range(len_analysis))
+    plt.plot(N_smooth, range(len_analysis), c="violet")
+    plt.ylabel(r"$N_{smooth}(E)$", fontsize=15)
+    plt.xlabel("E")
+    plt.title(
+        r"Smooth part of the spectrum: $N_{smooth}(E)=N(E)-N_{fl}(E)$", fontsize=22
+    )
+    plt.show()
+
+    # for the unfolded spectrum {eigf} the mean level spacing is 1! Steinter et al 'Mode Fluctuations as Fingerprints of Chaotic and Non-Chaotic Systems'
+    for k in range(1, len(eigfl) - 1):
+        levelspacing.append(eigfl[k + 1] - eigfl[k])
+    print(
+        "la media dello spacing è 1??", np.mean(np.array(levelspacing))
+    )  # sì lo è!!!!
 
 
 ##---------------------------------------------------------------------------
@@ -245,6 +336,7 @@ if __name__ == "__main__":
     from multiprocessing import Process
 
     if parallel_exe:
+        print(f"Executing delta3 and sigma2 for {potential}")
         p1 = Process(target=delta3_integrata)
         p2 = Process(target=sigma2_integrata)
         p1.start()
@@ -252,6 +344,7 @@ if __name__ == "__main__":
         p1.join()
         p2.join()
 
-    staircase_and_unfolding()
-    fluctuations()
-
+    # staircase_and_unfolding()
+    # fluctuations()
+    rho()
+    # unfolding_2_punto_0()
