@@ -1,12 +1,13 @@
 import numpy as np
 import pylab
 from numba import njit
+import matplotlib.pyplot as plt
 
 
 # @njit()
 
 
-def func(u, t):
+def Lorenz(u, t):
 
     sigma, rho, beta = 10, 28, 8 / 3
 
@@ -22,7 +23,6 @@ def func(u, t):
 # @njit()
 def RungeKutta4th(f, u0, t0, tf, n):
 
-    print("i arrii")
     t = np.linspace(t0, tf, n + 1)
     u = np.array((n + 1) * [u0])
     h = t[1] - t[0]
@@ -39,11 +39,21 @@ def RungeKutta4th(f, u0, t0, tf, n):
 
 if __name__ == "__main__":
 
-    u, t = RungeKutta4th(func, np.array([0.0, 1.0, 10.0]), 0.0, 10, 10000)
-    fx, fy, fz = u.T
+    # Compare two different set of initial conditions:
 
-    fig = pylab.figure()
+    # 1
+    initial_conditions1 = np.array([0.1, 0.2, 0.1])
+    uLorenz, t = RungeKutta4th(Lorenz, initial_conditions1, 0.0, 40, 10000)
+    fx, fy, fz = uLorenz.T
+
+    # 2
+    initial_conditions2 = np.array([0.1, 0.2, 0.1001])
+    uLorenz2, t2 = RungeKutta4th(Lorenz, initial_conditions2, 0.0, 40, 10000)
+    fx2, fy2, fz2 = uLorenz2.T
+
+    pylab.figure()
     ax = pylab.axes(projection="3d")
-    ax.plot3D(fx, fy, fz, "blue")
+    ax.plot3D(fx, fy, fz, "blue")  # 1
+    ax.plot3D(fx2, fy2, fz2, "orange")  # 2
     pylab.show()
 
