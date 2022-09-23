@@ -1,3 +1,4 @@
+from cProfile import label
 import numpy as np
 import pylab
 from numba import njit
@@ -53,7 +54,21 @@ if __name__ == "__main__":
 
     pylab.figure()
     ax = pylab.axes(projection="3d")
-    ax.plot3D(fx, fy, fz, "blue")  # 1
-    ax.plot3D(fx2, fy2, fz2, "orange")  # 2
+    ax.plot3D(
+        fx,
+        fy,
+        fz,
+        "blue",
+        label=f"x={initial_conditions1[0]}, y={initial_conditions1[1]}, z={initial_conditions1[2]}",
+    )  # 1
+    ax.plot3D(
+        fx2,
+        fy2,
+        fz2,
+        "orange",
+        label=f" x={initial_conditions2[0]}, y={initial_conditions2[1]}, z={initial_conditions2[2]}",
+    )  # 2
+    pylab.title("Lorenz system for 2 different sets of initial conditions")
+    pylab.legend()
     pylab.show()
 
