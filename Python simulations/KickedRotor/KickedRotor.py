@@ -4,8 +4,10 @@ import matplotlib.pyplot as plt
 import shutil
 import os
 
+"""Evolution of Gaussian Wave Packet in phas space through Husimi distribution"""
+
 M = 300
-kicks = 2
+kicks = 50
 K = 0.8
 x0 = 1.5
 p0 = 0.3
@@ -48,16 +50,18 @@ def gaussianWavePacket(M, x0, p0):
 
 
 def phaseVectors(x, p, K):
-    """#unitary evolution operator U=U(kick)*U(free)"""
+
+    """unitary evolution operator U=U(kick)*U(free)"""
+
     Ukick = np.exp(-1j / hbar * K * np.cos(x))
     Ufree = np.exp(-1j / (2 * hbar) * p ** 2)
     return Ukick, Ufree
 
 
-def evolveOneStep(V, P, psi_x):
+def evolveOneStep(Ukick, Ufree, psi_x):
     M = psi_x.size
-    fm = V * psi_x
-    sm = P * np.fft.fft(fm)
+    fm = Ukick * psi_x
+    sm = Ufree * np.fft.fft(fm)
     s = np.fft.ifft(sm)
     return s
 
@@ -71,31 +75,71 @@ def StdMap(n, K, x0=1.0, p0=1.0):
     return x, p
 
 
-# std_x, std_p = StdMap(kicks + 1, K, x0, p0)
-x, p, psi_x, psi_p = gaussianWavePacket(M, x0, p0)
-V, P = phaseVectors(x, p, K)
+def MeanEnergy(Qdist, result=False):
 
-Qdist = np.zeros((M, M), dtype=complex)
-Qdist_tot = np.zeros((kicks, M, M), dtype=complex)
+    meanP = []
+    length = len(Qdist)
 
-for k in np.arange(kicks):
-    psi_x = evolveOneStep(V, P, psi_x)
+    for k in range(length):
+        meanP.append(np.mean(np.abs(Qdist[k])))
+    meanP = np.array(meanP)
 
-    for i in np.arange(M):
-        x0 = 2 * np.pi * i / M
-        x, p, psiG_n0, psi_p = gaussianWavePacket(M, x0, 0)
-        Qdist[:, i] = 1 / np.sqrt(M) * np.fft.fft(np.conj(psiG_n0) * psi_x)
+    plt.figure()
+    plt.title("Mean Energy", fontsize=20)
+    plt.plot(range(len(meanP)), meanP, c="blue")
+    plt.xlabel("kicks", fontsize=15)
+    plt.ylabel(r"$<E>$", fontsize=15)
+    plt.axvline(x=35, linestyle="dotted", label="range of quantum break time")
+    plt.axvline(x=47, linestyle="dotted")
+    plt.legend()
+    plt.show()
 
-    n = np.arange(M)
-    Qdist_tot[k] = Qdist
-X = 2 * np.pi * n / M
-Y = X
-# graph.animate_matplotlib(X, Y, np.abs(Qdist_tot) ** 2)
-path = f"strength_{K}"
-if os.path.exists(path):
-    shutil.rmtree(path)
-os.makedirs(path)
+    deltaP = []
+    meanP = np.array(meanP)
+    for d in range(len(meanP) - 1):
+        deltaP.append(meanP[d + 1] - meanP[d])
 
-for k in range(kicks):
-    graph.writeVtk(k, np.abs(Qdist_tot[k]) ** 2, M, X[1] - X[0], path)
+    localization_length = np.mean(deltaP) / hbar ** 2
+    print("This is the approx localization length", np.sqrt(localization_length))
+
+    if result:
+        return meanP, localization_length
+
+
+if __name__ == "__main__":
+
+    graphic = False
+    meanP = []
+    x, p, psi_x, psi_p = gaussianWavePacket(M, x0, p0)
+    V, P = phaseVectors(x, p, K)
+
+    Qdist = np.zeros((M, M), dtype=complex)
+    Qdist_tot = np.zeros((kicks, M, M), dtype=complex)
+
+    for k in np.arange(kicks):
+        print(f"Kick number {k}")
+        psi_x = evolveOneStep(V, P, psi_x)
+
+        for i in np.arange(M):
+            x0 = 2 * np.pi * i / M
+            x, p, psiG_n0, psi_p = gaussianWavePacket(M, x0, 0)
+            Qdist[:, i] = 1 / np.sqrt(M) * np.fft.fft(np.conj(psiG_n0) * psi_x)
+
+        n = np.arange(M)
+        Qdist_tot[k] = Qdist
+
+    MeanEnergy(Qdist_tot)
+
+    X = 2 * np.pi * n / M
+    Y = X
+    # graph.animate_matplotlib(X, Y, np.abs(Qdist_tot) ** 2)
+
+    if graphic:
+        path = f"strength_{K}"
+        if os.path.exists(path):
+            shutil.rmtree(path)
+        os.makedirs(path)
+
+        for k in range(kicks):
+            graph.writeVtk(k, np.abs(Qdist_tot[k]) ** 2, M, X[1] - X[0], path)
 
