@@ -38,14 +38,13 @@ if unfolded == "y":
 else:
     eig = np.loadtxt(f"spectra/eigenvalues_{potential}.txt", dtype=complex)
 
-
+print(eig)
 n = len(eig)
 eig = eig.real
 # eig = eig / SLA.norm(eig)
 len_analysis = n
 gamma = 0.577216
 # eig = np.sort(eig)
-print(eig)
 ##----------------------Staircase function working: unfolding spectra--------------------------
 
 
@@ -267,10 +266,11 @@ def fluctuations():
 
     eigfl = eig[:len_analysis]
     print(eigfl)
+    print(eigfl)
     delta_n = []
     levelspacing = []
     for i in range(len(eigfl)):
-        delta_n.append(i - 0.5 - eigfl[i] + 0.5)
+        delta_n.append(i - eigfl[i])
 
     # plot fluctuations:
     plt.plot(eigfl, delta_n, label=r"$N_{fl} (E)$", c="blue")
@@ -329,6 +329,7 @@ def fluctuations():
 
 ##---------------------------------------------------------------------------
 if __name__ == "__main__":
+    fluctuations()
 
     parallel_exe = False
 
@@ -346,5 +347,5 @@ if __name__ == "__main__":
 
     # staircase_and_unfolding()
     # fluctuations()
-    rho()
+    # rho()
     # unfolding_2_punto_0()
